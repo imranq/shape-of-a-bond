@@ -4,6 +4,7 @@
   "type": "module",
   "description": "The Shape of a Bond: interactive 3D molecular orbital visualizer",
   "scripts": {
-    "start": "python3 -m http.server 5173"
+    "start": "python3 -m http.server 5173",
+    "deploy": "rm -rf dist && mkdir dist && cp -R index.html *.js style.css favicon.svg chem dist/ && npx wrangler pages deploy dist --project-name shape-of-a-bond --branch main"
   }
 }
