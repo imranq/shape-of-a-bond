@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Shape of a Bond</title>
+  <meta name="description" content="Interactive 3D molecular orbitals: build any molecule from SMILES, watch bonds form in reactions, and see resonance." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0b0d11" />
+  <meta property="og:title" content="The Shape of a Bond" />
+  <meta property="og:description" content="Interactive 3D molecular orbitals: build any molecule from SMILES, watch bonds form in reactions, and see resonance." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="labels"></div>
+
+  <header class="hud-title">
+    <div class="eyebrow" id="eyebrow">Molecular orbital bench</div>
+    <h1><span class="l1">THE SHAPE</span><span class="l2">OF A BOND</span></h1>
+    <div class="live"><i id="liveDot"></i><b id="molName">Hydrogen</b><span id="molBlurb"></span></div>
+    <div class="chips">
+      <div class="chip"><label id="c1l">H–H</label><b id="c1v">0.74 Å</b></div>
+      <div class="chip"><label id="c2l">Bond order</label><b id="c2v">1</b></div>
+      <div class="chip"><label id="c3l">Bond energy</label><b id="c3v">−4.52 eV</b></div>
+      <div class="chip"><label id="c4l">Orbital ε</label><b id="c4v">−15.4 eV</b></div>
+    </div>
+  </header>
+
+  <div class="dock">
+    <section class="panel controls">
+      <div class="seg tabs" id="modeSeg">
+        <button data-m="gallery" class="on">Gallery</button>
+        <button data-m="smiles">SMILES</button>
+        <button data-m="reaction">Reaction lab</button>
+      </div>
+
+      <div class="pane" id="paneGallery">
+        <div class="seg" id="molSeg"></div>
+      </div>
+
+      <div class="pane" id="paneSmiles" hidden>
+        <form class="smiles-form" id="smiForm" autocomplete="off">
+          <input id="smiIn" spellcheck="false" placeholder="SMILES, e.g. CC(=O)[O-]" value="c1ccncc1" />
+          <button type="submit">Build</button>
+        </form>
+        <div class="examples" id="smiEx"></div>
+        <div class="msg" id="smiMsg"></div>
+      </div>
+
+      <div class="pane" id="paneReaction" hidden>
+        <div class="rxlist" id="rxSeg"></div>
+        <div class="xi-row">
+          <button class="icon small" id="btnPlay" title="Play the reaction">
+            <svg viewBox="0 0 24 24" class="play"><path d="M7 5l12 7-12 7z" /></svg>
+            <svg viewBox="0 0 24 24" class="pause"><path d="M8 5v14M16 5v14" /></svg>
+          </button>
+          <input type="range" id="xi" min="0" max="1000" value="0" />
+          <span class="val" id="xiVal">ξ 0.00</span>
+        </div>
+      </div>
+
+      <div class="grid2" id="sliders">
+        <div id="stretchBox">
+          <div class="row head">
+            <span class="cap">Pull the bond</span><span class="val" id="stretchVal">0.74 Å</span>
+          </div>
+          <input type="range" id="stretch" min="60" max="260" value="100" />
+          <div class="ticks"><span>squeeze</span><span>springs back to Rₑ</span><span>pull</span></div>
+        </div>
+        <div>
+          <div class="row head">
+            <span class="cap">Display contour</span><span class="val" id="isoVal">0.10</span>
+          </div>
+          <input type="range" id="iso" min="0" max="100" value="50" />
+          <div class="ticks"><span>looser</span><span>visual only</span><span>tighter</span></div>
+        </div>
+      </div>
+
+      <div class="res-row" id="resRow" hidden>
+        <span class="cap">Resonance</span>
+        <div class="seg small" id="resSeg"></div>
+        <button class="icon small" id="btnResCycle" title="Cycle resonance structures">
+          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.66 5.66L4 15.5M4 20v-4.5h4.5" /></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="panel card energy">
+      <div class="row head">
+        <span class="cap" id="leftCap">Potential energy · <em id="morseName">H–H</em></span>
+        <span class="state" id="bondState">bound</span>
+      </div>
+      <svg id="morse"></svg>
+      <svg id="profile" hidden></svg>
+      <p class="foot" id="leftFoot">Drag the curve to pull the bond. Let go and it springs back to Rₑ.</p>
+    </section>
+
+    <section class="panel card diagram">
+      <div class="row head">
+        <span class="cap" id="diagCap">Orbital diagram</span><span class="hint">← → step · click a level</span>
+      </div>
+      <div class="mo-head">
+        <h2 id="moName">σ<sub>g</sub>1s</h2>
+        <span class="occ" id="moOcc">2 e⁻</span>
+      </div>
+      <p class="desc" id="moDesc"></p>
+      <svg id="mo"></svg>
+    </section>
+
+    <div class="viewbar">
+      <div class="seg small" id="viewSeg">
+        <button data-v="surface" class="on">Orbital</button>
+        <button data-v="both">Both</button>
+        <button data-v="cloud">Electrons</button>
+      </div>
+      <span class="measure" id="measure"></span>
+      <span class="legend-item"><i class="pos"></i>ψ&gt;0</span>
+      <span class="legend-item"><i class="neg"></i>ψ&lt;0</span>
+      <div class="tools">
+        <button class="icon small" id="btnVibrate" title="Vibrate the bond (space)">
+          <svg viewBox="0 0 24 24"><path d="M2 12h3l2-6 3 12 3-12 3 12 2-6h4" /></svg>
+        </button>
+        <button class="icon small on" id="btnRotate" title="Auto-rotate (R)">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
+        </button>
+        <button class="icon small" id="btnHelp" title="What am I looking at? (?)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7" /><circle cx="12" cy="17.2" r=".6" fill="currentColor" /></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="help" class="modal" hidden>
+    <div class="modal-card">
+      <button class="close" id="helpClose" aria-label="Close">×</button>
+      <div class="eyebrow">How to read this</div>
+      <h3>Bonds are interfering waves</h3>
+      <p>An electron in an atom is a standing wave, its <b>atomic orbital</b>. When two atoms approach, their waves overlap and add. The result is a <b>molecular orbital</b> ψ that belongs to the whole molecule.</p>
+      <div class="help-grid">
+        <div><i class="sw pos"></i><b>Cyan lobes</b> are where ψ is positive.</div>
+        <div><i class="sw neg"></i><b>Amber lobes</b> are where ψ is negative. The sign is the wave's phase, not a charge.</div>
+        <div><i class="sw shell"></i>An orbital has no edge. The glass shell is one <b>contour</b>, the surface where |ψ| equals a chosen value. The <em>display contour</em> slider picks which one to draw and doesn't change the molecule.</div>
+        <div><i class="sw dots"></i><b>Electrons</b> view: H₂ has only two electrons. Each bright dot is where one could be found in a single measurement. Repeat thousands of times and the dots trace out |ψ|².</div>
+      </div>
+      <p><b>Bonding</b> orbitals combine in phase and pile density between the nuclei. <b>Antibonding</b> orbitals (marked *) combine out of phase: a node cuts the bond. Bond order is half the difference between bonding and antibonding electrons.</p>
+      <p><b>Bond length is set by the molecule.</b> Rₑ is the bottom of the energy well. <em>Pull the bond</em> is a what-if: stretch it and the bonding/antibonding split collapses toward the free atoms. Let go and it springs back and rings like a real vibration.</p>
+      <p><b>Resonance.</b> Some molecules can't be drawn with a single Lewis structure. Benzene's two Kekulé structures are not two molecules that flip back and forth. The real molecule is their <em>hybrid</em>, and the delocalised π orbitals show it directly.</p>
+      <p><b>SMILES</b> builds any small molecule (H B C N O F P S Cl, up to 64 atoms). Its 3D shape comes from VSEPR plus a small force field, and its orbitals from extended Hückel theory. <b>Reaction lab</b> follows one orbital along a reaction path as reactant orbitals mix into new bonds.</p>
+      <div class="keys">
+        <span><kbd>←</kbd><kbd>→</kbd> orbital</span>
+        <span><kbd>1</kbd>–<kbd>6</kbd> gallery / reaction</span>
+        <span><kbd>V</kbd> view</span>
+        <span><kbd>Space</kbd> vibrate / play</span>
+        <span><kbd>R</kbd> rotate</span>
+      </div>
+      <p class="fine">Gallery orbitals are qualitative LCAO (Hückel for benzene) with photoelectron energies. SMILES and reaction orbitals are extended Hückel (Hoffmann parameters) over valence Slater orbitals. Reaction geometries are interpolated along a constructed path. The energy profiles are schematic, drawn from literature Eₐ and ΔH.</p>
+    </div>
+  </div>
+
+  <div id="fade"></div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

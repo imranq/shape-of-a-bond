@@ -1,0 +1,9 @@
+{
+  "name": "shape-of-a-bond",
+  "private": true,
+  "type": "module",
+  "description": "The Shape of a Bond: interactive 3D molecular orbital visualizer",
+  "scripts": {
+    "start": "python3 -m http.server 5173"
+  }
+}
